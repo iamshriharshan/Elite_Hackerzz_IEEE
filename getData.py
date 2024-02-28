@@ -1,4 +1,4 @@
-import nltk
+import spacy
 import json
 import string
 import re
@@ -28,53 +28,23 @@ class Paper:
         text = self.abstract + "\n" + "\n".join([p.text for p in BeautifulSoup(self.json['xml'], 'lxml').find_all('p')])
         return self.clean_text(text)
     
-    def clean_text(self, text:str) -> list:
+    def _remove_punct(self, doc):
+        return (t for t in doc if t.text not in string.punctuation)
 
-        #Removing HTML code
-        pattern = r"(http|ftp|https)://([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?<[^>]+>"
+    def _remove_stop_words(self, doc):
+        return (t for t in doc if not t.is_stop)
 
-        text=re.sub(pattern,"",text)
+    def _lemmatize(self, doc):
+        return ' '.join(t.lemma_ for t in doc)
 
-
-        # remove leading and trailing white space
-        text = text.strip()
-
-        # replace multiple consecutive white space characters with a single space
-        text = " ".join(text.split())
-
-        #Normalizing data
-        text=text.lower()
-
-        #Tokenizing data
-        tokens = nltk.word_tokenize(text)
-
-        #Removing punctuation
-        Just_word_tokens = [token for token in tokens if token not in string.punctuation]
-
-        #Removing stopwords
-        stopwords = nltk.corpus.stopwords.words("english")
-        
-
-        filtered_tokens = [token for token in tokens if token not in stopwords]
-
-        #Removing frequently appearing words
-        fdist = nltk.FreqDist(tokens)
-
-        # remove the most common words (e.g., the top 10% of words by frequency)
-        filtered_tokens2 = [token for token in tokens if fdist[token] < fdist.N() * 0.1]
-
-        #Lemmatizing
-        lemmatizer = nltk.stem.WordNetLemmatizer()
-
-        # lemmatize each token
-        lemmatized_tokens = [lemmatizer.lemmatize(token) for token in tokens]
-
-        return lemmatized_tokens
+    def clean_text(self,text:str) -> str:
+        nlp = spacy.load("en_core_web_sm")
+        doc = nlp(text)
+        removed_punct = self._remove_punct(doc)
+        removed_stop_words = self._remove_stop_words(removed_punct)
+        return self._lemmatize(removed_stop_words)
 
 def getData(path_to_data:str)-> list[list]:
     papers = [Paper(path) for path in Path(path_to_data).rglob('*.json')]
     return papers
 
-#_______main_______
-h1=Paper('8825770.json')
-print(h1.clean_text)
